@@ -1,0 +1,11 @@
+{
+  "name": "AI 多平台宣传文案员工",
+  "track": "市场宣传 / 内容营销",
+  "level": "L1",
+  "priority": "P0",
+  "difficulty": "初级",
+  "mvp_scope": "一键生成公众号、小红书、朋友圈、抖音等平台文案，并给出标题、CTA、发布建议和人工确认项。",
+  "mock_data_file": "mock_data/activities_100.csv",
+  "mock_data_rows": 100,
+  "mock_data_note": "全部模拟数据均为虚构数据，CSV 表头不计入 100 条业务记录。"
+}

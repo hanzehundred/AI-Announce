@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 多平台宣传文案员工 - Demo</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --card: #fff;
+    --primary: #4f46e5;
+    --primary-light: #eef2ff;
+    --text: #1e293b;
+    --text-secondary: #64748b;
+    --border: #e2e8f0;
+    --tag-bg: #f1f5f9;
+    --success: #10b981;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --radius: 10px;
+    --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+
+  .app { max-width: 1200px; margin: 0 auto; padding: 24px; }
+  .header { text-align: center; margin-bottom: 32px; }
+  .header h1 { font-size: 28px; font-weight: 700; margin-bottom: 6px; }
+  .header .subtitle { color: var(--text-secondary); font-size: 14px; }
+
+  .layout { display: grid; grid-template-columns: 420px 1fr; gap: 24px; align-items: start; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+
+  .card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px; margin-bottom: 20px; }
+  .card-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+
+  .form-group { margin-bottom: 14px; }
+  .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; color: var(--text); }
+  .form-group label .required { color: var(--danger); margin-left: 2px; }
+  .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; transition: border-color .2s; }
+  .form-group input:focus, .form-group textarea:focus, .form-group select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,70,229,.1); }
+  .form-group textarea { resize: vertical; min-height: 70px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .platform-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .platform-chip { padding: 6px 16px 6px 12px; border: 1.5px solid var(--border); border-radius: 20px; font-size: 13px; cursor: pointer; user-select: none; transition: all .2s; background: #fff; display: inline-flex; align-items: center; gap: 4px; }
+  .platform-chip:hover { border-color: var(--primary); background: var(--primary-light); }
+  .platform-chip .check { display: inline-block; width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid #ccc; position: relative; transition: all .2s; flex-shrink: 0; }
+  .platform-chip .check::after { content: ""; position: absolute; top: 2px; left: 4px; width: 5px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); opacity: 0; transition: opacity .15s; }
+  .platform-chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .platform-chip.active .check { border-color: #fff; background: rgba(255,255,255,.2); }
+  .platform-chip.active .check::after { opacity: 1; }
+
+  .mode-chips { display: flex; gap: 0; }
+  .mode-chip { padding: 5px 16px 5px 10px; border: 1.5px solid var(--border); font-size: 12px; cursor: pointer; user-select: none; transition: all .2s; background: #fff; display: inline-flex; align-items: center; gap: 4px; color: var(--text-secondary); }
+  .mode-chip:first-child { border-radius: 20px 0 0 20px; }
+  .mode-chip:last-child { border-radius: 0 20px 20px 0; }
+  .mode-chip + .mode-chip { border-left: none; }
+  .mode-chip:hover { border-color: var(--primary); color: var(--text); }
+  .mode-chip .check { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid #ccc; position: relative; transition: all .2s; flex-shrink: 0; }
+  .mode-chip .check::after { content: ""; position: absolute; top: 1px; left: 3px; width: 4px; height: 7px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); opacity: 0; transition: opacity .15s; }
+  .mode-chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .mode-chip.active .check { border-color: #fff; background: rgba(255,255,255,.2); }
+  .mode-chip.active .check::after { opacity: 1; }
+
+  .btn { padding: 10px 24px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all .2s; }
+  .btn-primary { background: var(--primary); color: #fff; width: 100%; }
+  .btn-primary:hover { background: #4338ca; }
+  .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-outline { background: #fff; border: 1.5px solid var(--border); color: var(--text); }
+  .btn-outline:hover { border-color: var(--primary); }
+
+  .action-bar { display: flex; gap: 10px; margin-bottom: 10px; }
+  .action-bar .btn { flex: 1; }
+
+  .steps { display: flex; gap: 0; margin-bottom: 24px; }
+  .step { flex: 1; text-align: center; position: relative; }
+  .step::after { content: ""; position: absolute; top: 14px; left: 60%; width: 80%; height: 2px; background: var(--border); z-index: 0; }
+  .step:last-child::after { display: none; }
+  .step-num { width: 30px; height: 30px; border-radius: 50%; background: var(--border); color: var(--text-secondary); display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; position: relative; z-index: 1; margin-bottom: 6px; transition: all .3s; }
+  .step-label { font-size: 11px; color: var(--text-secondary); display: block; }
+  .step.active .step-num { background: var(--primary); color: #fff; }
+  .step.active .step-label { color: var(--primary); font-weight: 600; }
+  .step.done .step-num { background: var(--success); color: #fff; }
+  .step.done .step-label { color: var(--success); }
+
+  .summary-banner { background: linear-gradient(135deg, #eef2ff, #faf5ff); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 20px; border-left: 4px solid var(--primary); }
+  .summary-banner .label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--primary); font-weight: 600; margin-bottom: 4px; }
+  .summary-banner .text { font-size: 15px; font-weight: 500; color: var(--text); }
+
+  .platform-tabs { display: flex; gap: 0; margin-bottom: 0; border-bottom: 2px solid var(--border); }
+  .platform-tab { padding: 10px 20px; font-size: 13px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all .2s; color: var(--text-secondary); }
+  .platform-tab:hover { color: var(--text); }
+  .platform-tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+
+  .platform-content { display: none; padding-top: 16px; }
+  .platform-content.active { display: block; }
+
+  .field-row { display: flex; align-items: flex-start; margin-bottom: 14px; gap: 12px; }
+  .field-label { min-width: 70px; font-size: 12px; font-weight: 600; color: var(--text-secondary); padding-top: 2px; }
+  .field-value { flex: 1; font-size: 13px; }
+  .field-value.title { font-size: 16px; font-weight: 600; color: var(--text); }
+  .field-value.body { background: #f8fafc; padding: 14px; border-radius: 6px; white-space: pre-line; line-height: 1.8; }
+
+  .tag-list { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tag { padding: 3px 10px; border-radius: 12px; font-size: 12px; background: var(--tag-bg); }
+
+  .confirm-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 14px 16px; margin-top: 16px; }
+  .confirm-box .title { font-size: 13px; font-weight: 600; color: #92400e; margin-bottom: 8px; }
+  .confirm-box ul { margin: 0; padding-left: 18px; font-size: 13px; color: #78350f; }
+  .confirm-box li { margin-bottom: 3px; }
+
+  .preview-bar { display: flex; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--text-secondary); }
+  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state p { font-size: 14px; }
+
+  .loading { display: none; text-align: center; padding: 20px; }
+  .loading.active { display: block; }
+  .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 10px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* HTML 预览弹窗 */
+  .overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.5); z-index:100; justify-content:center; align-items:center; }
+  .overlay.active { display:flex; }
+  .overlay-content { background:#fff; border-radius:12px; width:90%; max-width:900px; max-height:85vh; display:flex; flex-direction:column; }
+  .overlay-header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border); }
+  .overlay-header h3 { font-size:16px; }
+  .overlay-body { flex:1; overflow:hidden; display:flex; }
+  .overlay-body iframe { flex:1; border:none; }
+  .btn-sm { padding: 6px 14px; font-size: 12px; border-radius: 6px; cursor: pointer; border: 1.5px solid var(--border); background: #fff; transition: all .2s; }
+  .btn-sm:hover { border-color: var(--primary); }
+  .btn-sm.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .btn-sm.download { background: var(--success); color: #fff; border-color: var(--success); }
+  .overlay-header select { padding:4px 8px; border-radius:4px; border:1px solid #ddd; font-size:12px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <h1>AI 多平台宣传文案员工</h1>
+    <p class="subtitle">市场宣传 / 内容营销 · L1 初级 · 一键生成多平台宣传文案</p>
+  </div>
+
+  <!-- 步骤指示器 -->
+  <div class="steps">
+    <div class="step active" id="step1"><span class="step-num">1</span><span class="step-label">读取资料</span></div>
+    <div class="step" id="step2"><span class="step-num">2</span><span class="step-label">提取信息</span></div>
+    <div class="step" id="step3"><span class="step-num">3</span><span class="step-label">匹配风格</span></div>
+    <div class="step" id="step4"><span class="step-num">4</span><span class="step-label">生成文案</span></div>
+    <div class="step" id="step5"><span class="step-num">5</span><span class="step-label">一致性检查</span></div>
+    <div class="step" id="step6"><span class="step-num">6</span><span class="step-label">输出确认</span></div>
+  </div>
+
+  <div class="layout">
+    <!-- 左侧：输入区域 -->
+    <div>
+      <div class="card">
+        <div class="card-title">活动资料输入</div>
+
+        <div class="form-group">
+          <label>活动名称 <span class="required">*</span></label>
+          <input type="text" id="activityName" placeholder="例如：企业AI实战营001">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>行业/主题 <span class="required">*</span></label>
+            <input type="text" id="industry" placeholder="例如：企业AI">
+          </div>
+          <div class="form-group">
+            <label>目标人群 <span class="required">*</span></label>
+            <input type="text" id="targetAudience" placeholder="例如：企业老板和业务负责人">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>活动亮点 <span class="required">*</span></label>
+          <textarea id="keySellingPoints" placeholder="例如：真实案例拆解；现场产出MVP需求包；提供可复用模板" rows="2"></textarea>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>活动时间</label>
+            <input type="text" id="activityTime" placeholder="例如：2026-03-01 19:30">
+          </div>
+          <div class="form-group">
+            <label>活动形式/地点</label>
+            <input type="text" id="location" placeholder="例如：线上直播">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>主讲人/嘉宾</label>
+            <input type="text" id="speaker" placeholder="例如：林老师 AI产品顾问">
+          </div>
+          <div class="form-group">
+            <label>报名方式 <span class="required">*</span></label>
+            <input type="text" id="signupMethod" placeholder="例如：扫码填写报名表">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>语气风格 <span class="required">*</span></label>
+            <select id="toneHint">
+              <option value="专业可信">专业可信</option>
+              <option value="年轻化种草">年轻化种草</option>
+              <option value="直接有行动号召">直接有行动号召</option>
+              <option value="老板视角">老板视角</option>
+              <option value="实战接地气">实战接地气</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>限制/禁用表达</label>
+            <input type="text" id="constraints" placeholder="例如：避免夸大收益">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>宣传平台 <span class="required">*</span></label>
+          <div class="platform-chips" id="platformChips">
+            <span class="platform-chip active" data-platform="公众号"><span class="check"></span>公众号</span>
+            <span class="platform-chip active" data-platform="小红书"><span class="check"></span>小红书</span>
+            <span class="platform-chip active" data-platform="朋友圈"><span class="check"></span>朋友圈</span>
+            <span class="platform-chip active" data-platform="抖音"><span class="check"></span>抖音</span>
+          </div>
+        </div>
+
+        <div class="action-bar">
+          <button class="btn btn-outline" onclick="fillDemo()">填入示例数据</button>
+          <button class="btn btn-primary" id="generateBtn" onclick="generate()">生成多平台文案</button>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--text-secondary);">
+          <span>生成引擎</span>
+          <div class="mode-chips">
+            <span class="mode-chip active" data-mode="mock" onclick="switchMode('mock')"><span class="check"></span>Mock 演示</span>
+            <span class="mode-chip" data-mode="api" onclick="switchMode('api')"><span class="check"></span>Claude API</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="workflowCard" style="display:none;">
+        <div class="card-title">工作流执行状态</div>
+        <div id="workflowLog"></div>
+      </div>
+    </div>
+
+    <!-- 右侧：输出区域 -->
+    <div id="outputArea">
+      <div class="card" id="outputCard">
+        <div class="card-title">生成结果</div>
+        <div class="empty-state" id="emptyState">
+          <div class="icon">&#x1F4DD;</div>
+          <p>请在左侧填写活动信息并点击"生成多平台文案"</p>
+          <p style="font-size:12px;margin-top:6px;">或点击"填入示例数据"快速体验</p>
+        </div>
+        <div class="loading" id="loadingSpinner">
+          <div class="spinner"></div>
+          <p style="font-size:13px;color:var(--text-secondary);">AI 正在生成多平台文案...</p>
+        </div>
+        <div id="outputContent" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HTML 预览弹窗 -->
+  <div class="overlay" id="htmlOverlay">
+    <div class="overlay-content">
+      <div class="overlay-header">
+        <h3>公众号 HTML 预览（375px 手机宽度）</h3>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-sm download" onclick="downloadHtml()">下载 HTML 文件</button>
+          <select id="htmlTheme" onchange="refreshPreview()">
+            <option value="default">Default</option>
+            <option value="grace" selected>Grace</option>
+            <option value="simple">Simple</option>
+            <option value="modern">Modern</option>
+          </select>
+          <button class="btn-sm" onclick="closePreview()">关闭</button>
+        </div>
+      </div>
+      <div class="overlay-body">
+        <iframe id="previewFrame" srcdoc="<p style='color:#999;text-align:center;padding:40px;'>加载中...</p>"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// 平台选择交互
+document.querySelectorAll('.platform-chip').forEach(chip => {
+  chip.addEventListener('click', () => chip.classList.toggle('active'));
+});
+
+// 填入示例数据
+function fillDemo() {
+  document.getElementById('activityName').value = '企业AI实战营001';
+  document.getElementById('industry').value = '企业AI';
+  document.getElementById('targetAudience').value = '企业老板和业务负责人';
+  document.getElementById('keySellingPoints').value = '企业AI真实案例拆解；现场产出MVP需求包；提供可复用模板；第1类业务场景演示';
+  document.getElementById('activityTime').value = '2026-03-01 19:30';
+  document.getElementById('location').value = '线上直播';
+  document.getElementById('speaker').value = '林老师 AI产品顾问';
+  document.getElementById('signupMethod').value = '扫码填写报名表';
+  document.getElementById('toneHint').value = '专业可信';
+  document.getElementById('constraints').value = '避免夸大收益';
+  document.querySelectorAll('.platform-chip').forEach(c => c.classList.add('active'));
+}
+
+// 模式切换
+function switchMode(mode) {
+  document.querySelectorAll('.mode-chip').forEach(c => c.classList.remove('active'));
+  document.querySelector(`.mode-chip[data-mode="${mode}"]`).classList.add('active');
+  document.getElementById('generateBtn').textContent = mode === 'api' ? '调用 Claude 生成' : '生成多平台文案';
+}
+
+function isApiMode() {
+  return document.querySelector('.mode-chip.active')?.dataset.mode === 'api';
+}
+
+// Mock 数据
+const mockCopyData = {
+  '公众号': {
+    title: '企业做AI员工，先把需求讲清楚——这场实战营帮你从0到1',
+    body: '很多企业老板都在问同一个问题：AI 员工到底怎么落地？\n\n答案不是买一个工具，而是先把自己的业务需求讲清楚。\n\n【企业AI实战营】不做概念科普，而是带着你：\n\n▎真实案例拆解\n从企业真实场景出发，看 AI 员工如何嵌入业务流程，解决实际的效率问题。\n\n▎现场产出 MVP 需求包\n不是听课，是动手。现场梳理你所在行业的场景痛点，产出一份可开发的需求包。\n\n▎提供可复用模板\n实战营结束后，你会带走一套可直接复用的需求梳理模板，后续做其他 AI 项目也能用。\n\n【活动信息】\n时间：2026年3月1日 19:30\n形式：线上直播\n主讲：林老师 AI产品顾问\n\n名额有限，扫码填写报名表即可锁定席位。',
+    cta: '扫码填写报名表',
+    hashtags: ['#企业AI', '#AI员工', '#数字化转型', '#AI实战营'],
+    publishTip: '建议周二/周四上午 10:00 发布，企业决策者阅读高峰时段',
+    basis: '公众号适合完整方法论说明 + 深度阅读，采用"痛点-方案-行动"结构，匹配企业老板的决策阅读习惯'
+  },
+  '小红书': {
+    title: '不懂技术，也能拆AI员工需求｜这套模板直接抄',
+    body: '之前总觉得 AI 离业务很远，直到参加了一场实战营才搞明白——\n\n原来不是先学技术，是先把自己的业务需求"翻译"成 AI 能理解的语言。\n\n分享几个我在实战营学到的关键点：\n\n1️⃣ 不是所有业务都适合上 AI\n先判断是不是"高频、重复、有规则"的场景\n\n2️⃣ 拆需求比写代码重要\n把业务场景拆成：数据 → 输入 → 处理 → 输出 → 验收，AI 才能接住\n\n3️⃣ 有模板真的省一半时间\n现场给了一套需求梳理模板，回去就能直接用\n\n主讲林老师讲得很清楚，不是技术向，老板和业务负责人都能听懂。\n\n线上直播，扫码就能报名～',
+    cta: '评论"AI员工"获取报名入口',
+    hashtags: ['#AI员工', '#企业数字化', '#职场干货', '#效率工具', '#运营人必备'],
+    publishTip: '建议晚间 20:00-21:00 发布，搭配活动海报图，封面突出"模板"关键词',
+    basis: '小红书适合经验分享和种草语气，采用第一人称视角 + 清单体，降低阅读门槛，用 emoji 和数字列表增强可读性'
+  },
+  '朋友圈': {
+    title: '最近想做AI落地的朋友可以看看这个',
+    body: '推荐一个我们团队验证过的企业AI实战营。\n\n不讲虚的，直接带真实案例拆解，现场产出可开发的 MVP 需求包。\n\n适合谁：企业老板、业务负责人（不是技术向）\n时间：3月1日晚 19:30 线上\n主讲：林老师，做过很多企业 AI 落地案例\n\n感兴趣私我，发你报名链接 👇',
+    cta: '私信领取报名链接',
+    hashtags: [],
+    publishTip: '建议配活动海报或现场照片，发布时间选午间 12:00 或晚间 21:00',
+    basis: '朋友圈适合熟人推荐语气，采用轻量推荐 + 关键信息罗列，用"私信"降低行动门槛，符合社交传播习惯'
+  },
+  '抖音': {
+    title: '老板说要做AI员工，开发问"需求呢？"',
+    body: '你是不是也遇到过这种情况 👆\n\n老板说：我们要搞 AI！\n开发问：具体要做什么？\n你卡在中间，两边都说不清楚。\n\n这场 1.5 小时的实战营就是解决这个问题的：\n✅ 学会把业务需求拆成 AI 能理解的结构\n✅ 现场产出一份可开发的 MVP 需求包\n✅ 带走一套可复用的模板\n\n林老师带队，不讲概念，直接上手拆案例。\n\n3月1日晚 19:30 线上直播\n点主页报名，名额真的有限！',
+    cta: '点主页报名',
+    hashtags: ['#企业AI', '#AI员工', '#老板日常', '#数字化转型', '#职场干货'],
+    publishTip: '建议晚间 19:00-21:00 发布，前 3 秒用痛点钩子抓住注意力，配合口播+文字 overlay',
+    basis: '抖音适合 3 秒钩子 + 痛点共鸣 + 解决方案 + 强行动号召的短视频口播结构，用短句、emoji 和口语化表达'
+  }
+};
+
+// API 调用
+async function generateReal(activity, platforms) {
+  const res = await fetch('/api/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      activity: {
+        activity_name: activity.name, industry: activity.industry,
+        target_audience: activity.audience, objective: activity.objective,
+        key_selling_points: activity.sellingPoints,
+        activity_time: activity.time, location: activity.location,
+        speaker: activity.speaker, signup_method: activity.signupMethod,
+        tone_hint: activity.tone, constraints: activity.constraints,
+      },
+      platforms: platforms,
+    }),
+  });
+  if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'API 调用失败'); }
+  return await res.json();
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderApiResult(data) {
+  let html = '';
+  html += '<div class="summary-banner"><div class="label">一句话传播主张</div><div class="text">' + escapeHtml(data.slogan || '') + '</div></div>';
+
+  html += '<div class="platform-tabs">';
+  data.platforms.forEach((p, i) => {
+    html += '<span class="platform-tab' + (i===0?' active':'') + '" data-platform="' + p.name + '" onclick="switchTab(\'' + p.name + '\')">' + p.name + '</span>';
+  });
+  html += '</div>';
+
+  data.platforms.forEach((p, i) => {
+    html += '<div class="platform-content' + (i===0?' active':'') + '" data-platform="' + p.name + '">';
+    html += '<div class="field-row"><span class="field-label">推荐标题</span><span class="field-value title">' + escapeHtml(p.title) + '</span></div>';
+    html += '<div class="field-row"><span class="field-label">正文文案</span><span class="field-value body">' + escapeHtml(p.body) + '</span></div>';
+    html += '<div class="field-row"><span class="field-label">核心卖点</span><span class="field-value">' + escapeHtml(p.sellingPoints) + '</span></div>';
+    html += '<div class="field-row"><span class="field-label">CTA</span><span class="field-value"><strong>' + escapeHtml(p.cta) + '</strong></span></div>';
+    html += '<div class="field-row"><span class="field-label">Hashtag</span><span class="field-value"><div class="tag-list">';
+    const tags = p.hashtags ? p.hashtags.split(/[,，、#]/).filter(Boolean).map(t => t.replace(/^#/,'').trim()) : [];
+    tags.forEach(h => { if(h) html += '<span class="tag">#' + h + '</span>'; });
+    html += '</div></span></div>';
+    html += '<div class="field-row"><span class="field-label">发布建议</span><span class="field-value">' + escapeHtml(p.publishTip) + '</span></div>';
+    html += '<div class="field-row"><span class="field-label">生成依据</span><span class="field-value">' + escapeHtml(p.basis) + '</span></div>';
+
+    if (p.name === '公众号') {
+      html += '<div class="preview-bar">';
+      html += '<button class="btn-sm primary" onclick="event.stopPropagation();openPreviewForPlatform(\'' + p.name + '\')">预览 HTML</button>';
+      html += '</div>';
+    }
+    html += '</div>';
+  });
+
+  if (data.confirmList && data.confirmList.length > 0) {
+    html += '<div class="confirm-box"><div class="title">需人工确认项（发布前必须由市场负责人确认）</div><ul>';
+    data.confirmList.forEach(item => { html += '<li>' + escapeHtml(item) + '</li>'; });
+    html += '</ul></div>';
+  }
+  return html;
+}
+
+function renderMockOutput(name, platforms) {
+  const time = document.getElementById('activityTime').value || '待确认';
+  const loc = document.getElementById('location').value || '待确认';
+  const constraint = document.getElementById('constraints').value || '无';
+
+  let html = '';
+  html += '<div class="summary-banner"><div class="label">一句话传播主张</div><div class="text">把"' + name + '"从概念了解推进到现场产出可落地的业务需求包。</div></div>';
+
+  html += '<div class="platform-tabs">';
+  platforms.forEach((p, i) => {
+    html += '<span class="platform-tab' + (i===0?' active':'') + '" data-platform="' + p + '" onclick="switchTab(\'' + p + '\')">' + p + '</span>';
+  });
+  html += '</div>';
+
+  platforms.forEach((p, i) => {
+    const data = mockCopyData[p] || mockCopyData['公众号'];
+    html += '<div class="platform-content' + (i===0?' active':'') + '" data-platform="' + p + '">';
+    html += '<div class="field-row"><span class="field-label">推荐标题</span><span class="field-value title">' + data.title + '</span></div>';
+    html += '<div class="field-row"><span class="field-label">正文文案</span><span class="field-value body">' + data.body + '</span></div>';
+    html += '<div class="field-row"><span class="field-label">核心卖点</span><span class="field-value">真实案例拆解 · 现场产出MVP需求包 · 可复用模板</span></div>';
+    html += '<div class="field-row"><span class="field-label">CTA</span><span class="field-value"><strong>' + data.cta + '</strong></span></div>';
+    html += '<div class="field-row"><span class="field-label">Hashtag</span><span class="field-value"><div class="tag-list">';
+    data.hashtags.forEach(h => { html += '<span class="tag">' + h + '</span>'; });
+    html += '</div></span></div>';
+    html += '<div class="field-row"><span class="field-label">发布建议</span><span class="field-value">' + data.publishTip + '</span></div>';
+    html += '<div class="field-row"><span class="field-label">生成依据</span><span class="field-value">' + data.basis + '</span></div>';
+
+    if (p === '公众号') {
+      html += '<div class="preview-bar">';
+      html += '<button class="btn-sm primary" onclick="event.stopPropagation();openPreviewForPlatform(\'' + p + '\')">预览 HTML</button>';
+      html += '</div>';
+    }
+    html += '</div>';
+  });
+
+  html += '<div class="confirm-box"><div class="title">需人工确认项（发布前必须由市场负责人确认）</div><ul>';
+  html += '<li>活动时间：' + time + '</li>';
+  html += '<li>活动形式/地点：' + loc + '</li>';
+  html += '<li>报名链接/二维码是否有效</li>';
+  html += '<li>活动名额是否准确</li>';
+  if (constraint !== '无') html += '<li>已遵守限制条件：' + constraint + ' — 请人工复核</li>';
+  html += '<li>效果承诺类表述是否存在（如有，需确认合规）</li>';
+  html += '</ul></div>';
+  return html;
+}
+
+function switchTab(platform) {
+  document.querySelectorAll('.platform-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.platform-content').forEach(c => c.classList.remove('active'));
+  const tab = document.querySelector('.platform-tab[data-platform="' + platform + '"]');
+  const content = document.querySelector('.platform-content[data-platform="' + platform + '"]');
+  if (tab) tab.classList.add('active');
+  if (content) content.classList.add('active');
+}
+
+function updateSteps(n) {
+  for (let i = 1; i <= 6; i++) {
+    const el = document.getElementById('step' + i);
+    el.classList.remove('active', 'done');
+    if (i < n) el.classList.add('done');
+    if (i === n) el.classList.add('active');
+  }
+}
+
+function resetSteps() {
+  for (let i = 1; i <= 6; i++) document.getElementById('step' + i).classList.remove('active', 'done');
+}
+
+function addWorkflowLog(msg) {
+  const log = document.getElementById('workflowLog');
+  const div = document.createElement('div');
+  div.style.cssText = 'font-size:12px;padding:4px 0;color:var(--text-secondary);display:flex;align-items:center;gap:6px;';
+  div.innerHTML = '<span style="color:var(--success);">✓</span>' + msg;
+  log.appendChild(div);
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// 主生成函数
+let _apiResultData = null;
+
+async function generate() {
+  const name = document.getElementById('activityName').value.trim();
+  if (!name) { alert('请至少填写活动名称'); return; }
+
+  const platforms = Array.from(document.querySelectorAll('.platform-chip.active')).map(c => c.dataset.platform);
+  if (platforms.length === 0) { alert('请至少选择一个宣传平台'); return; }
+
+  const isApi = isApiMode();
+
+  document.getElementById('workflowCard').style.display = 'block';
+  document.getElementById('workflowLog').innerHTML = '';
+  resetSteps();
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('outputContent').style.display = 'none';
+  document.getElementById('loadingSpinner').classList.add('active');
+  document.getElementById('generateBtn').disabled = true;
+
+  if (isApi) {
+    try {
+      const activity = {
+        name, industry: document.getElementById('industry').value,
+        audience: document.getElementById('targetAudience').value, objective: '',
+        sellingPoints: document.getElementById('keySellingPoints').value,
+        time: document.getElementById('activityTime').value, location: document.getElementById('location').value,
+        speaker: document.getElementById('speaker').value, signupMethod: document.getElementById('signupMethod').value,
+        tone: document.getElementById('toneHint').value, constraints: document.getElementById('constraints').value,
+      };
+
+      addWorkflowLog('正在调用 Claude API 生成' + platforms.length + '个平台文案...');
+      updateSteps(4);
+
+      const data = await generateReal(activity, platforms);
+      _apiResultData = data;
+
+      updateSteps(5); addWorkflowLog('一致性检查 — 完成');
+      updateSteps(6); addWorkflowLog('标记人工确认项 — 完成');
+
+      document.getElementById('loadingSpinner').classList.remove('active');
+      document.getElementById('outputContent').innerHTML = renderApiResult(data);
+      document.getElementById('outputContent').style.display = 'block';
+    } catch (err) {
+      document.getElementById('loadingSpinner').classList.remove('active');
+      alert('API 调用失败：' + err.message + '\n\n请确认：\n1. server.js 已启动 (npm start)\n2. .env 中已配置 ANTHROPIC_API_KEY');
+    }
+  } else {
+    const steps = [
+      { n: 1, msg: '读取活动资料 — 解析字段完成', d: 400 },
+      { n: 2, msg: '提取关键信息 — 名称、人群、卖点、时间、CTA 已结构化', d: 500 },
+      { n: 3, msg: '匹配平台风格 — ' + platforms.join('、') + ' 风格规则已加载', d: 500 },
+      { n: 4, msg: '生成分平台文案 — 标题、正文、CTA、Hashtag 初稿完成', d: 700 },
+      { n: 5, msg: '一致性检查 — 事实核对通过', d: 400 },
+      { n: 6, msg: '标记人工确认项 — 已完成', d: 300 },
+    ];
+    for (const s of steps) { await sleep(s.d); updateSteps(s.n); addWorkflowLog(s.msg); }
+    await sleep(300);
+
+    _apiResultData = { platforms: platforms.map(p => {
+      const d = mockCopyData[p] || mockCopyData['公众号'];
+      return { name: p, title: d.title, body: d.body, cta: d.cta, hashtags: (d.hashtags || []).join(' ') };
+    })};
+
+    document.getElementById('loadingSpinner').classList.remove('active');
+    document.getElementById('outputContent').innerHTML = renderMockOutput(name, platforms);
+    document.getElementById('outputContent').style.display = 'block';
+  }
+
+  document.getElementById('generateBtn').disabled = false;
+}
+
+// HTML 预览
+let _currentHtml = '', _currentMarkdown = '';
+
+function openPreviewForPlatform(platformName) {
+  if (!_apiResultData) return;
+  const p = _apiResultData.platforms.find(p => p.name === platformName);
+  if (!p) return;
+  const md = '## ' + p.title + '\n\n' + p.body + '\n\n**CTA**：' + p.cta + '\n\n**话题**：' + (p.hashtags || '');
+  openPreview(md, p.title);
+}
+
+async function openPreview(markdown, title) {
+  _currentMarkdown = markdown;
+  document.getElementById('htmlOverlay').classList.add('active');
+  await loadPreview(markdown, title);
+}
+
+function closePreview() { document.getElementById('htmlOverlay').classList.remove('active'); }
+
+async function refreshPreview() { await loadPreview(_currentMarkdown, ''); }
+
+async function loadPreview(markdown, title) {
+  const theme = document.getElementById('htmlTheme').value;
+  const frame = document.getElementById('previewFrame');
+  frame.srcdoc = '<p style="color:#999;text-align:center;padding:40px;">生成中...</p>';
+  try {
+    const res = await fetch('/api/html-preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ markdown, title: title || '', theme }),
+    });
+    frame.srcdoc = _currentHtml = await res.text();
+  } catch (e) {
+    frame.srcdoc = '<p style="color:red;padding:20px;">转换失败: ' + e.message + '</p>';
+  }
+}
+
+function downloadHtml() {
+  if (!_currentHtml) { alert('请先生成 HTML'); return; }
+  const blob = new Blob([_currentHtml], { type: 'text/html;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (document.getElementById('activityName').value || 'article') + '_公众号.html';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+</script>
+</body>
+</html>

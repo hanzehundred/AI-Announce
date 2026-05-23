@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>公众号 HTML 预览</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+  h2 { color: #333; }
+  textarea { width: 100%; height: 300px; font-family: monospace; font-size: 13px; padding: 12px; margin-bottom: 12px; border: 1px solid #ddd; border-radius: 6px; }
+  button { padding: 10px 24px; background: #4f46e5; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+  button:hover { background: #4338ca; }
+  select { padding: 8px; border: 1px solid #ddd; border-radius: 6px; margin-right: 10px; }
+  .row { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+  iframe { width: 100%; height: 600px; border: 1px solid #ddd; border-radius: 6px; margin-top: 20px; }
+  .tip { color: #888; font-size: 13px; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+<h2>公众号 HTML 预览工具</h2>
+<p class="tip">左侧输入 Markdown → 调用 baoyu-markdown-to-html → 右侧预览公众号渲染效果</p>
+
+<div class="row">
+  <select id="theme">
+    <option value="default">Default 主题</option>
+    <option value="grace" selected>Grace 主题</option>
+    <option value="simple">Simple 主题</option>
+    <option value="modern">Modern 主题</option>
+  </select>
+  <button onclick="preview()">生成 HTML 预览</button>
+</div>
+
+<div style="display:flex;gap:16px;">
+  <textarea id="mdInput" placeholder="输入 Markdown 内容...">
+## 企业做AI，先把需求讲清楚
+
+很多企业老板都在问同一个问题：AI 到底怎么在自己的业务里用起来？
+
+答案不是先买工具，是先把需求讲清楚。
+
+### 你会经历什么
+
+**第一，真实案例拆解。** 不讲别人家的故事，直接拿企业AI落地的真实案例，拆开来看。
+
+**第二，现场产出 MVP 需求包。** 这不是听课，是动手。跟着步骤走，结束的时候你手里是一份可以交给开发的需求文档。
+
+**第三，带走可复用模板。** 后续做第二、第三个AI项目，同样能用。
+
+### 活动信息
+
+- **时间**：2026年3月1日 19:30
+- **形式**：线上直播
+- **主讲**：林老师，AI产品顾问
+
+> 扫码填写报名表，名额有限。
+  </textarea>
+  <iframe id="preview" style="width:375px;height:700px;"></iframe>
+</div>
+
+<script>
+async function preview() {
+  const md = document.getElementById('mdInput').value;
+  const theme = document.getElementById('theme').value;
+
+  const res = await fetch('/api/html-preview', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ markdown: md, theme: theme }),
+  });
+
+  const html = await res.text();
+  const frame = document.getElementById('preview');
+  frame.srcdoc = html;
+}
+</script>
+</body>
+</html>

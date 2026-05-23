@@ -1,0 +1,6 @@
+file: mock_data/activities_100.csv
+expected_business_rows: 100
+actual_business_rows: 100
+header_included_in_count: false
+verification_result: PASS
+note: All rows are fictional mock data.

@@ -1,0 +1,14 @@
+{
+  "name": "ai-copywriter",
+  "version": "1.0.0",
+  "description": "AI 多平台宣传文案员工",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.55.0",
+    "dotenv": "^16.4.0"
+  }
+}
