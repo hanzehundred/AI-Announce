@@ -335,7 +335,8 @@
       <div class="overlay-header">
         <h3>公众号 HTML 预览（375px 手机宽度）</h3>
         <div style="display:flex;gap:8px;">
-          <button class="btn-sm download" onclick="downloadHtml()">下载 HTML 文件</button>
+          <button class="btn-sm download" onclick="downloadHtml()">下载 HTML</button>
+          <button class="btn-sm primary" onclick="publishToWechat()">发布到公众号</button>
           <select id="htmlTheme" onchange="refreshPreview()">
             <option value="default">Default</option>
             <option value="grace" selected>Grace</option>
@@ -538,8 +539,8 @@ function renderApiResult(data) {
 
     if (p.name === '公众号') {
       html += '<div class="preview-bar" style="align-items:center;">';
-      html += '<button class="btn-sm primary" id="richHtmlBtn" disabled onclick="event.stopPropagation();generateRichHtml(\'' + p.name + '\')">生成图文 HTML</button>';
-      html += '<span id="imgStatus" style="font-size:11px;color:var(--text-secondary);">配图生成中...</span>';
+      html += '<button class="btn-sm primary" onclick="event.stopPropagation();generateRichHtml(\'' + p.name + '\')">生成图文 HTML</button>';
+      html += '<span id="imgStatus" style="font-size:11px;color:var(--text-secondary);">配图生成中（可先发布纯文字）</span>';
       html += '</div>';
       html += '<div class="gen-image-wrap" data-platform="' + p.name + '"></div>';
     }
@@ -583,8 +584,8 @@ function renderMockOutput(name, platforms) {
 
     if (p === '公众号') {
       html += '<div class="preview-bar" style="align-items:center;">';
-      html += '<button class="btn-sm primary" id="richHtmlBtn" disabled onclick="event.stopPropagation();generateRichHtml(\'' + p + '\')">生成图文 HTML</button>';
-      html += '<span id="imgStatus" style="font-size:11px;color:var(--text-secondary);">配图生成中...</span>';
+      html += '<button class="btn-sm primary" onclick="event.stopPropagation();generateRichHtml(\'' + p + '\')">生成图文 HTML</button>';
+      html += '<span id="imgStatus" style="font-size:11px;color:var(--text-secondary);">配图生成中（可先发布纯文字）</span>';
       html += '</div>';
       html += '<div class="gen-image-wrap" data-platform="' + p + '"></div>';
     }
@@ -801,12 +802,11 @@ let _currentHtml = '', _currentMarkdown = '';
 async function generateRichHtml(platformName) {
   const p = _apiResultData?.platforms?.find(p => p.name === platformName);
   if (!p) return;
-  const img = _generatedImages[platformName];
-  if (!img?.url) return;
 
-  // 图片插入正文最前面（用绝对路径确保预览能加载）
-  const imgUrl = location.origin + img.url;
-  const imgMd = `![配图](${imgUrl})\n\n`;
+  // 如果有生成好的配图就嵌入，没有就纯文字
+  const img = _generatedImages[platformName];
+  const imgMd = (img?.url) ? `![配图](${location.origin + img.url})\n\n` : '';
+
   const md = '## ' + p.title + '\n\n' + imgMd + p.body +
     '\n\n**CTA**：' + p.cta +
     '\n\n**话题**：' + (p.hashtags || '');
@@ -846,6 +846,30 @@ async function loadPreview(markdown, title) {
   } catch (e) {
     frame.srcdoc = '<p style="color:red;padding:20px;">转换失败: ' + e.message + '</p>';
   }
+}
+
+async function publishToWechat() {
+  if (!_currentHtml) { alert('请先生成 HTML'); return; }
+  const btn = document.querySelector('#htmlOverlay .btn-sm.primary');
+  btn.disabled = true; btn.textContent = '发布中...';
+
+  try {
+    const res = await fetch('/api/publish-wechat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        html: _currentHtml,
+        title: document.getElementById('activityName').value || 'AI 宣传文案',
+        author: 'AI 宣传员工',
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    alert('已推送到公众号草稿箱！\n登录 mp.weixin.qq.com → 草稿箱 审核后群发');
+  } catch (e) {
+    alert('发布失败: ' + e.message);
+  }
+  btn.disabled = false; btn.textContent = '发布到公众号';
 }
 
 function downloadHtml() {

@@ -454,9 +454,11 @@ async function generateAiPrompt(activity, platform) {
   console.log("  用 AI 生成图片 prompt...");
   const msg = await anthropic.messages.create({
     model: apiConfig.model,
-    max_tokens: 500,
+    max_tokens: 400,
     system: systemPrompt,
     messages: [{ role: "user", content: userPrompt }],
+    // 关掉 thinking，节省 token 给输出
+    thinking: { type: "disabled" },
   });
 
   const textBlock = Array.isArray(msg.content)
@@ -523,6 +525,71 @@ async function extractFieldsFromText(text) {
     if (m) return JSON.parse(m[0]);
     throw new Error("AI 返回无法解析");
   }
+}
+
+// ---------- 发布到公众号 ----------
+
+const SKILL_WECHAT_API = path.join(
+  ROOT, "..", ".agents", "skills", "baoyu-post-to-wechat", "scripts", "wechat-api.ts"
+);
+
+async function publishToWechat(html, title, author) {
+  const appId = process.env.WECHAT_APP_ID || "";
+  const secret = process.env.WECHAT_APP_SECRET || "";
+  if (!appId || !secret) throw new Error("请配置 WECHAT_APP_ID 和 WECHAT_APP_SECRET");
+
+  // 写 HTML 到临时文件
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "wechat-pub-"));
+  const htmlPath = path.join(tmpDir, "article.html");
+  fs.writeFileSync(htmlPath, html, "utf-8");
+
+  // 写 HTML
+  fs.writeFileSync(htmlPath, html, "utf-8");
+
+  // 在旁边放一个 .md 文件，用 frontmatter 传中文标题（避免命令行编码问题）
+  const safeTitle = (title || "AI 文案").replace(/"/g, "'");
+  const safeAuthor = (author || "AI 宣传员工").replace(/"/g, "'");
+  const mdPath = htmlPath.replace(/\.html$/i, ".md");
+  fs.writeFileSync(mdPath, [
+    "---",
+    `title: "${safeTitle}"`,
+    `author: "${safeAuthor}"`,
+    "---",
+    "",
+    "# " + safeTitle,
+    "",
+    "> 由 AI 多平台宣传文案员工自动生成",
+  ].join("\n"), "utf-8");
+
+  // 不传 --html，wechat-api 根据文件扩展名自动识别
+  const cmd = process.platform === "win32"
+    ? `set "WECHAT_APP_ID=${appId}" && set "WECHAT_APP_SECRET=${secret}" && npx -y bun "${SKILL_WECHAT_API}" "${htmlPath}"`
+    : `WECHAT_APP_ID="${appId}" WECHAT_APP_SECRET="${secret}" npx -y bun "${SKILL_WECHAT_API}" "${htmlPath}"`;
+
+  console.log("  发布到公众号...");
+  console.log("  htmlPath:", htmlPath);
+  console.log("  exists:", fs.existsSync(htmlPath));
+
+  return new Promise((resolve, reject) => {
+    exec(cmd, { timeout: 60000, maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
+      try { fs.rmSync(tmpDir, { recursive: true }); } catch (_) {}
+      if (err) {
+        console.error("  发布 stderr:", (stderr || "").slice(-500));
+        reject(new Error(`发布失败: ${stderr || err.message}`));
+        return;
+      }
+      console.log("  发布 stdout:", (stdout || "").slice(-300));
+      // 从 stdout 提取草稿 ID
+      const draftMatch = stdout.match(/media_id[=:]?\s*["']?([\w-]+)/i)
+                     || stdout.match(/draft[_\s]*id[=:]?\s*["']?([\w-]+)/i);
+      resolve({
+        success: true,
+        message: "已推送到公众号草稿箱，请登录 mp.weixin.qq.com 审核后群发",
+        draftId: draftMatch ? draftMatch[1] : null,
+        detail: stdout.slice(-500),
+      });
+    });
+  });
 }
 
 // ---------- HTTP Server ----------
@@ -633,6 +700,31 @@ const server = http.createServer(async (req, res) => {
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify(result));
         } catch (e) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: e.message }));
+        }
+      });
+    } catch (e) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "无效 JSON" }));
+    }
+    return;
+  }
+
+  // 发布到公众号
+  if (req.method === "POST" && req.url === "/api/publish-wechat") {
+    try {
+      let body = "";
+      req.on("data", c => { body += c; });
+      req.on("end", async () => {
+        try {
+          const { html, title, author } = JSON.parse(body);
+          if (!html) throw new Error("请提供 html 内容");
+          const result = await publishToWechat(html, title || "AI 文案", author || "AI 宣传员工");
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(result));
+        } catch (e) {
+          console.error("WeChat publish error:", e.message);
           res.writeHead(500, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: e.message }));
         }
