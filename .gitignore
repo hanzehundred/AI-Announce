@@ -1,7 +1,18 @@
 node_modules/
 .env
+*.local
 .bak-*
 .DS_Store
 Thumbs.db
 *.tmp
 *.log
+
+# 敏感信息
+*-secret*
+*credential*
+*_key
+*.pem
+settings.json
+
+# 生成产物
+output_images/

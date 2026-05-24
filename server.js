@@ -86,6 +86,13 @@ function buildSystemPrompt(platforms) {
     "3. 不确定的时间、价格、名额、链接必须标记'待确认'",
     "4. 每个平台输出必须说明生成依据",
     "",
+    "## ⚠️ 公众号必须生成长文（严格遵守）",
+    "- 公众号正文必须 1200-2500 字，少于 1200 字视为不合格",
+    "- 每个亮点必须展开为 200-350 字的完整段落，包含场景描述、方法论、案例细节",
+    "- 结构必须完整：开场钩子 → 痛点分析 → 价值主张 → 亮点展开(每点深写) → 嘉宾背书 → 适合人群 → 活动信息 → CTA",
+    "- 禁止：一段话概括、公告式写法、空洞的形容词堆砌",
+    "- 用具体的场景、数据、对比来填充内容，让读者看完有收获感",
+    "",
     "## 平台风格规则",
     platformRules,
     "",
@@ -120,6 +127,9 @@ function buildUserPrompt(activity, platforms) {
     `- 报名方式：${activity.signup_method}`,
     `- 语气要求：${activity.tone_hint}`,
     `- 限制/禁用表达：${activity.constraints || "无"}`,
+    `- 价格/优惠：${activity.price || "待确认"}`,
+    `- 名额限制：${activity.quota || "待确认"}`,
+    `- 效果承诺：${activity.effect_claim || "无"}`,
     "",
     "## 需要生成的平台",
     platforms.join("、"),
@@ -339,6 +349,132 @@ function sanitizeFilename(name) {
   return name.replace(/[<>:"/\\|?*]/g, "_").slice(0, 50);
 }
 
+// ---------- baoyu-imagine (Seedream) 生图 ----------
+
+const SKILL_IMAGINE = path.join(
+  ROOT, "..", ".agents", "skills", "baoyu-imagine", "scripts", "main.ts"
+);
+
+async function generateImageWithSkill(prompt, opts = {}) {
+  const outFile = path.join(ROOT, "output_images", `img_${Date.now()}.png`);
+  if (!fs.existsSync(path.dirname(outFile))) fs.mkdirSync(path.dirname(outFile), { recursive: true });
+
+  const ar = opts.ar || "16:9";
+  const quality = opts.quality || "2k";
+
+  const apiKey = process.env.OPENAI_API_KEY || "";
+  const baseUrl = process.env.OPENAI_BASE_URL || "";
+  const model = process.env.OPENAI_IMAGE_MODEL || "doubao-seedream-5-0-260128";
+  if (!apiKey) throw new Error("请配置 OPENAI_API_KEY");
+
+  // 写入临时 prompt 文件
+  const promptFile = path.join(ROOT, "output_images", `prompt_${Date.now()}.txt`);
+  fs.writeFileSync(promptFile, prompt, "utf-8");
+
+  console.log("  baoyu-imagine (中转站/OpenAI) 生图...");
+  console.log("  prompt:", prompt.slice(0, 120) + "...");
+
+  const cmd = process.platform === "win32"
+    ? `set "OPENAI_API_KEY=${apiKey}" && set "OPENAI_BASE_URL=${baseUrl}" && npx -y bun "${SKILL_IMAGINE}" --provider openai --model ${model} --promptfiles "${promptFile}" --image "${outFile}" --ar ${ar} --quality ${quality}`
+    : `OPENAI_API_KEY="${apiKey}" OPENAI_BASE_URL="${baseUrl}" npx -y bun "${SKILL_IMAGINE}" --provider openai --model "${model}" --promptfiles "${promptFile}" --image "${outFile}" --ar ${ar} --quality ${quality}`;
+
+  return new Promise((resolve, reject) => {
+    exec(cmd, { timeout: 180000, maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
+      try { fs.unlinkSync(promptFile); } catch (_) {}
+      if (err) {
+        console.error("  生图 stderr:", (stderr || "").slice(-400));
+        reject(new Error(`生图失败: ${stderr || err.message}`));
+        return;
+      }
+      console.log("  生图完成");
+      resolve({ localPath: outFile, prompt });
+    });
+  });
+}
+
+function buildImagePrompt(activity, platform) {
+  const platformHints = {
+    "公众号": "专业、简洁、信息图风格，适合深度阅读配图",
+    "小红书": "清新、种草风、卡通手绘风格，适合社交分享",
+    "朋友圈": "轻量、温暖、推荐感，适合熟人传播",
+    "抖音": "视觉冲击、动态感、前3秒钩子，适合短视频封面",
+  };
+  const hint = platformHints[platform] || platformHints["公众号"];
+
+  return [
+    `活动宣传海报：${activity.activity_name}`,
+    `行业：${activity.industry}`,
+    `亮点：${activity.key_selling_points?.replace(/;/g, "、")}`,
+    `风格要求：${hint}`,
+    `文字：标题"${activity.activity_name}"，中文排版`,
+  ].join("。");
+}
+
+// ---------- AI 增强生图 prompt ----------
+
+const IMAGE_PROMPT_RULES = `
+## 你是专业活动海报设计师
+
+根据活动信息，生成一张高质量 Seedream-v4 图片 prompt（英文）。遵循以下设计原则：
+
+### 风格选择
+- 企业/技术活动 → "clean corporate Memphis style, flat vector illustration, geometric shapes"
+- 创意/年轻活动 → "kawaii pixel art style, pastel colors, cute characters"
+- 知识培训 → "Notion-style hand-drawn illustration, minimal line art, soft macaron palette"
+- 正式发布会 → "elegant editorial infographic, refined typography, muted gold accents"
+
+### 视觉元素映射
+- AI/技术 → "brain, neural network, circuit, code window, gear"
+- 商业/企业 → "chart, building, handshake, rocket, arrow"
+- 教育/培训 → "lightbulb, book, magnifying glass, checklist"
+- 创意 → "palette, star, abstract shapes, sparkle"
+
+### 排版要求
+- 中文标题清晰，放在构图上方或中央
+- 留出 30-40% 留白空间
+- 时间/地点/CTA 放在底部
+
+### 输出格式
+只输出一个纯英文 prompt，80-200 词，不要任何解释、不要 JSON、不要 markdown 代码块。
+`;
+
+async function generateAiPrompt(activity, platform) {
+  const systemPrompt = IMAGE_PROMPT_RULES;
+  const userPrompt = [
+    `活动名称：${activity.activity_name}`,
+    `行业：${activity.industry}`,
+    `目标人群：${activity.target_audience}`,
+    `活动亮点：${activity.key_selling_points}`,
+    `活动形式：${activity.location || "线上"}`,
+    `平台：${platform}`,
+    "",
+    "请生成 Seedream 图片 prompt。",
+  ].join("\n");
+
+  console.log("  用 AI 生成图片 prompt...");
+  const msg = await anthropic.messages.create({
+    model: apiConfig.model,
+    max_tokens: 500,
+    system: systemPrompt,
+    messages: [{ role: "user", content: userPrompt }],
+  });
+
+  const textBlock = Array.isArray(msg.content)
+    ? msg.content.find(c => c.type === "text")
+    : null;
+  const raw = textBlock?.text || (typeof msg.content === "string" ? msg.content : "");
+  console.log("  AI prompt 结果:", (raw || "空").slice(0, 100));
+  return raw.trim();
+}
+
+async function generateImageWithAi(activity, platform, opts = {}) {
+  // 1. AI 写高质量 prompt（baoyu 设计规则）
+  const prompt = await generateAiPrompt(activity, platform);
+  // 2. baoyu-imagine + Seedream 生图
+  const result = await generateImageWithSkill(prompt, opts);
+  return { ...result, prompt };
+}
+
 // ---------- HTTP Server ----------
 
 const MIME = {
@@ -422,6 +558,42 @@ const server = http.createServer(async (req, res) => {
           res.end(JSON.stringify(result));
         } catch (e) {
           console.error("HTML convert error:", e.message);
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: e.message }));
+        }
+      });
+    } catch (e) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "无效的 JSON" }));
+    }
+    return;
+  }
+
+  // 生成活动图片
+  if (req.method === "POST" && req.url === "/api/generate-image") {
+    try {
+      let body = "";
+      req.on("data", c => { body += c; });
+      req.on("end", async () => {
+        try {
+          const { activity_id, activity, platform, width, height, customPrompt } = JSON.parse(body);
+
+          let result;
+          if (customPrompt) {
+            result = await generateImageWithSkill(customPrompt, { ar: "16:9" });
+          } else if (activity_id || activity) {
+            const act = activity_id ? findActivity(activity_id) : activity;
+            if (!act) throw new Error("未找到活动数据");
+            // AI 增强模式：Claude 写 prompt → baoyu-imagine 生图
+            result = await generateImageWithAi(act, platform || "公众号", { width, height });
+          } else {
+            throw new Error("请提供 activity_id、activity 或 customPrompt");
+          }
+
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ success: true, ...result }));
+        } catch (e) {
+          console.error("Image gen error:", e.message);
           res.writeHead(500, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: e.message }));
         }

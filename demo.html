@@ -111,6 +111,10 @@
   .confirm-box li { margin-bottom: 3px; }
 
   .preview-bar { display: flex; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .gen-image { max-width:100%; border-radius:8px; margin-top:10px; border:1px solid var(--border); }
+  .gen-image-wrap { margin-top:12px; }
+  .gen-image-wrap .hint { font-size:11px; color:var(--text-secondary); margin-bottom:4px; }
+  .btn-sm.loading { opacity:.6; pointer-events:none; }
 
   .empty-state { text-align: center; padding: 60px 20px; color: var(--text-secondary); }
   .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
@@ -268,7 +272,45 @@
     </div>
   </div>
 
-  <!-- HTML 预览弹窗 -->
+  <!-- 生成前确认弹窗 -->
+<div class="overlay" id="confirmOverlay">
+  <div class="overlay-content" style="max-width:520px;">
+    <div class="overlay-header">
+      <h3>确认活动信息（不确定项请核对）</h3>
+      <button class="btn-sm" onclick="closeConfirm()">取消</button>
+    </div>
+    <div style="padding:16px 20px;overflow-y:auto;max-height:60vh;">
+      <div class="form-group">
+        <label>活动时间 <span style="color:var(--warn);font-size:10px;">待确认</span></label>
+        <input type="text" id="confirmTime" placeholder="2026-03-01 19:30">
+      </div>
+      <div class="form-group">
+        <label>活动形式/地点 <span style="color:var(--warn);font-size:10px;">待确认</span></label>
+        <input type="text" id="confirmLocation" placeholder="线上直播">
+      </div>
+      <div class="form-group">
+        <label>报名方式/链接 <span style="color:var(--warn);font-size:10px;">待确认</span></label>
+        <input type="text" id="confirmSignup" placeholder="扫码填写报名表">
+      </div>
+      <div class="form-group">
+        <label>价格/优惠</label>
+        <input type="text" id="confirmPrice" placeholder="免费 / 9.9元 / 待确认">
+      </div>
+      <div class="form-group">
+        <label>名额限制</label>
+        <input type="text" id="confirmQuota" placeholder="限100人 / 不限 / 待确认">
+      </div>
+      <div class="form-group">
+        <label>效果承诺</label>
+        <input type="text" id="confirmEffect" placeholder="无效果承诺 / 待确认">
+      </div>
+      <button class="btn btn-primary" onclick="confirmAndGenerate()" style="margin-top:8px;">确认无误，开始生成</button>
+      <p style="font-size:11px;color:var(--text-secondary);margin-top:6px;">标记"待确认"的字段将在输出中提示人工审核</p>
+    </div>
+  </div>
+</div>
+
+<!-- HTML 预览弹窗 -->
   <div class="overlay" id="htmlOverlay">
     <div class="overlay-content">
       <div class="overlay-header">
@@ -372,6 +414,7 @@ async function generateReal(activity, platforms) {
         activity_time: activity.time, location: activity.location,
         speaker: activity.speaker, signup_method: activity.signupMethod,
         tone_hint: activity.tone, constraints: activity.constraints,
+        price: activity.price || "", quota: activity.quota || "", effect_claim: activity.effect || "",
       },
       platforms: platforms,
     }),
@@ -409,9 +452,11 @@ function renderApiResult(data) {
     html += '<div class="field-row"><span class="field-label">生成依据</span><span class="field-value">' + escapeHtml(p.basis) + '</span></div>';
 
     if (p.name === '公众号') {
-      html += '<div class="preview-bar">';
-      html += '<button class="btn-sm primary" onclick="event.stopPropagation();openPreviewForPlatform(\'' + p.name + '\')">预览 HTML</button>';
+      html += '<div class="preview-bar" style="align-items:center;">';
+      html += '<button class="btn-sm primary" id="richHtmlBtn" disabled onclick="event.stopPropagation();generateRichHtml(\'' + p.name + '\')">生成图文 HTML</button>';
+      html += '<span id="imgStatus" style="font-size:11px;color:var(--text-secondary);">配图生成中...</span>';
       html += '</div>';
+      html += '<div class="gen-image-wrap" data-platform="' + p.name + '"></div>';
     }
     html += '</div>';
   });
@@ -452,9 +497,11 @@ function renderMockOutput(name, platforms) {
     html += '<div class="field-row"><span class="field-label">生成依据</span><span class="field-value">' + data.basis + '</span></div>';
 
     if (p === '公众号') {
-      html += '<div class="preview-bar">';
-      html += '<button class="btn-sm primary" onclick="event.stopPropagation();openPreviewForPlatform(\'' + p + '\')">预览 HTML</button>';
+      html += '<div class="preview-bar" style="align-items:center;">';
+      html += '<button class="btn-sm primary" id="richHtmlBtn" disabled onclick="event.stopPropagation();generateRichHtml(\'' + p + '\')">生成图文 HTML</button>';
+      html += '<span id="imgStatus" style="font-size:11px;color:var(--text-secondary);">配图生成中...</span>';
       html += '</div>';
+      html += '<div class="gen-image-wrap" data-platform="' + p + '"></div>';
     }
     html += '</div>';
   });
@@ -504,6 +551,58 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 // 主生成函数
 let _apiResultData = null;
+let _generatedImages = {};
+
+async function generateImageForPlatform(platformName) {
+  if (!_apiResultData || _generatedImages[platformName]?.loading) return;
+
+  _generatedImages[platformName] = { loading: true };
+  updateImageUI(platformName);
+
+  try {
+    const activity = {
+      activity_name: document.getElementById('activityName').value,
+      industry: document.getElementById('industry').value,
+      target_audience: document.getElementById('targetAudience').value,
+      key_selling_points: document.getElementById('keySellingPoints').value,
+      location: document.getElementById('location').value,
+    };
+    const res = await fetch('/api/generate-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ activity: activity, platform: platformName }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '失败');
+    const filename = data.localPath.split(/[\\/]/).pop();
+    _generatedImages[platformName] = { url: '/output_images/' + filename, loading: false };
+  } catch (e) {
+    _generatedImages[platformName] = { error: e.message, loading: false };
+  }
+  updateImageUI(platformName);
+}
+
+function updateImageUI(platformName) {
+  const wrap = document.querySelector('.gen-image-wrap[data-platform="' + platformName + '"]');
+  if (!wrap) return;
+  const d = _generatedImages[platformName];
+  if (!d) { wrap.innerHTML = ''; return; }
+  if (d.loading) {
+    wrap.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:12px 0;font-size:12px;color:var(--text-secondary);"><div class="spinner" style="width:16px;height:16px;border-width:2px;"></div>AI 正在生成配图...</div>';
+  } else if (d.error) {
+    wrap.innerHTML = '<p style="font-size:12px;color:var(--danger);padding:8px 0;">' + d.error + '</p>';
+  } else if (d.url) {
+    wrap.innerHTML = '<p class="hint">AI 生成配图</p><img class="gen-image" src="' + d.url + '" alt="配图" onerror="this.style.display=\'none\'">';
+    // 启用图文 HTML 按钮
+    const btn = document.getElementById('richHtmlBtn');
+    const status = document.getElementById('imgStatus');
+    if (btn) { btn.disabled = false; btn.textContent = '生成图文 HTML'; }
+    if (status) { status.textContent = '配图已就绪'; status.style.color = 'var(--success)'; }
+  } else if (d.error) {
+    const status = document.getElementById('imgStatus');
+    if (status) { status.textContent = '配图失败'; status.style.color = 'var(--danger)'; }
+  }
+}
 
 async function generate() {
   const name = document.getElementById('activityName').value.trim();
@@ -512,8 +611,37 @@ async function generate() {
   const platforms = Array.from(document.querySelectorAll('.platform-chip.active')).map(c => c.dataset.platform);
   if (platforms.length === 0) { alert('请至少选择一个宣传平台'); return; }
 
+  // 弹出确认对话框
+  document.getElementById('confirmTime').value = document.getElementById('activityTime').value;
+  document.getElementById('confirmLocation').value = document.getElementById('location').value;
+  document.getElementById('confirmSignup').value = document.getElementById('signupMethod').value;
+  document.getElementById('confirmPrice').value = '';
+  document.getElementById('confirmQuota').value = '';
+  document.getElementById('confirmEffect').value = '';
+  document.getElementById('confirmOverlay').classList.add('active');
+}
+
+function closeConfirm() {
+  document.getElementById('confirmOverlay').classList.remove('active');
+}
+
+async function confirmAndGenerate() {
+  // 确认值回写表单
+  document.getElementById('activityTime').value = document.getElementById('confirmTime').value;
+  document.getElementById('location').value = document.getElementById('confirmLocation').value;
+  document.getElementById('signupMethod').value = document.getElementById('confirmSignup').value;
+
+  const price = document.getElementById('confirmPrice').value;
+  const quota = document.getElementById('confirmQuota').value;
+  const effect = document.getElementById('confirmEffect').value;
+
+  document.getElementById('confirmOverlay').classList.remove('active');
+
+  const name = document.getElementById('activityName').value.trim();
+  const platforms = Array.from(document.querySelectorAll('.platform-chip.active')).map(c => c.dataset.platform);
   const isApi = isApiMode();
 
+  _generatedImages = {};
   document.getElementById('workflowCard').style.display = 'block';
   document.getElementById('workflowLog').innerHTML = '';
   resetSteps();
@@ -531,6 +659,8 @@ async function generate() {
         time: document.getElementById('activityTime').value, location: document.getElementById('location').value,
         speaker: document.getElementById('speaker').value, signupMethod: document.getElementById('signupMethod').value,
         tone: document.getElementById('toneHint').value, constraints: document.getElementById('constraints').value,
+        price: document.getElementById('confirmPrice').value, quota: document.getElementById('confirmQuota').value,
+        effect: document.getElementById('confirmEffect').value,
       };
 
       addWorkflowLog('正在调用 Claude API 生成' + platforms.length + '个平台文案...');
@@ -545,6 +675,12 @@ async function generate() {
       document.getElementById('loadingSpinner').classList.remove('active');
       document.getElementById('outputContent').innerHTML = renderApiResult(data);
       document.getElementById('outputContent').style.display = 'block';
+
+      // 自动为公众号生图
+      if (platforms.includes('公众号') && isApiMode()) {
+        addWorkflowLog('自动生成公众号配图...');
+        generateImageForPlatform('公众号');
+      }
     } catch (err) {
       document.getElementById('loadingSpinner').classList.remove('active');
       alert('API 调用失败：' + err.message + '\n\n请确认：\n1. server.js 已启动 (npm start)\n2. .env 中已配置 ANTHROPIC_API_KEY');
@@ -576,6 +712,22 @@ async function generate() {
 
 // HTML 预览
 let _currentHtml = '', _currentMarkdown = '';
+
+async function generateRichHtml(platformName) {
+  const p = _apiResultData?.platforms?.find(p => p.name === platformName);
+  if (!p) return;
+  const img = _generatedImages[platformName];
+  if (!img?.url) return;
+
+  // 图片插入正文最前面（用绝对路径确保预览能加载）
+  const imgUrl = location.origin + img.url;
+  const imgMd = `![配图](${imgUrl})\n\n`;
+  const md = '## ' + p.title + '\n\n' + imgMd + p.body +
+    '\n\n**CTA**：' + p.cta +
+    '\n\n**话题**：' + (p.hashtags || '');
+
+  openPreview(md, p.title);
+}
 
 function openPreviewForPlatform(platformName) {
   if (!_apiResultData) return;
