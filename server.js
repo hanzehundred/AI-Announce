@@ -475,6 +475,56 @@ async function generateImageWithAi(activity, platform, opts = {}) {
   return { ...result, prompt };
 }
 
+// ---------- 自由文本要素提取 ----------
+
+async function extractFieldsFromText(text) {
+  const sys = [
+    "你是一个活动信息提取器。从用户提供的自由文本中提取活动关键要素。",
+    "只输出 JSON，不要任何解释。",
+    "",
+    "字段说明（如果文本中没有提到，值设为空字符串）：",
+    "- activity_name: 活动名称",
+    "- industry: 行业/主题",
+    "- target_audience: 目标人群",
+    "- key_selling_points: 活动亮点，用分号分隔",
+    "- activity_time: 活动时间",
+    "- location: 活动形式或地点",
+    "- speaker: 主讲人/嘉宾",
+    "- signup_method: 报名方式",
+    "- tone_hint: 语气风格（专业可信/年轻化种草/直接有行动号召/老板视角/实战接地气）",
+    "- constraints: 禁用表达或限制",
+    "- price: 价格/优惠",
+    "- quota: 名额限制",
+    "- platform_hint: AI 建议的宣传平台（公众号/小红书/朋友圈/抖音，用分号分隔）",
+    "",
+    '输出格式：{"activity_name":"...","industry":"...","target_audience":"...","key_selling_points":"亮点1；亮点2","activity_time":"...","location":"...","speaker":"...","signup_method":"...","tone_hint":"...","constraints":"...","price":"...","quota":"...","platform_hint":"公众号;小红书;朋友圈;抖音"}',
+  ].join("\n");
+
+  console.log("  提取活动要素...");
+  const msg = await anthropic.messages.create({
+    model: apiConfig.model,
+    max_tokens: 800,
+    system: sys,
+    messages: [{ role: "user", content: text }],
+  });
+
+  const textBlock = Array.isArray(msg.content)
+    ? msg.content.find(c => c.type === "text")
+    : null;
+  const raw = textBlock?.text || "";
+
+  // 解析 JSON
+  try {
+    const json = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    return JSON.parse(json);
+  } catch {
+    // 尝试从文本中提取 JSON
+    const m = raw.match(/\{[\s\S]*\}/);
+    if (m) return JSON.parse(m[0]);
+    throw new Error("AI 返回无法解析");
+  }
+}
+
 // ---------- HTTP Server ----------
 
 const MIME = {
@@ -565,6 +615,31 @@ const server = http.createServer(async (req, res) => {
     } catch (e) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "无效的 JSON" }));
+    }
+    return;
+  }
+
+  // 自由文本提取要素
+  if (req.method === "POST" && req.url === "/api/extract-fields") {
+    try {
+      let body = "";
+      req.on("data", c => { body += c; });
+      req.on("end", async () => {
+        try {
+          const { text } = JSON.parse(body);
+          if (!text) throw new Error("请提供文本");
+
+          const result = await extractFieldsFromText(text);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(result));
+        } catch (e) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: e.message }));
+        }
+      });
+    } catch (e) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "无效 JSON" }));
     }
     return;
   }

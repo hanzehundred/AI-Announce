@@ -162,8 +162,25 @@
     <!-- 左侧：输入区域 -->
     <div>
       <div class="card">
-        <div class="card-title">活动资料输入</div>
+        <div class="card-title" style="justify-content:space-between;">
+          <span>活动资料输入</span>
+          <div class="mode-chips" style="margin:0;">
+            <span class="mode-chip active" data-input="form" onclick="switchInputMode('form')"><span class="check"></span>表单填写</span>
+            <span class="mode-chip" data-input="text" onclick="switchInputMode('text')"><span class="check"></span>自由文本</span>
+          </div>
+        </div>
 
+        <!-- 自由文本模式 -->
+        <div id="freeTextArea" style="display:none;">
+          <div class="form-group">
+            <textarea id="freeTextInput" placeholder="直接粘贴活动介绍、产品文案、或任意描述文字&#10;&#10;例如：&#10;下周三晚上7点半，我们邀请了AI产品专家林老师做一场线上直播，分享企业AI落地的真实案例。现场会带着大家拆解业务需求，产出一份可开发的MVP需求包，还提供可复用的模板。适合企业老板和业务负责人参加，扫码报名即可。&#10;&#10;AI 会自动提取活动名称、亮点、目标人群、时间地点等要素..." rows="8" style="min-height:160px;font-size:14px;line-height:1.7;"></textarea>
+          </div>
+          <button class="btn btn-primary" id="extractBtn" onclick="extractAndConfirm()">AI 提取要素并生成</button>
+          <p style="font-size:11px;color:var(--text-secondary);margin-top:6px;">AI 自动从文本中提取活动要素 → 你确认修改 → 一键生成多平台文案</p>
+        </div>
+
+        <!-- 表单填写模式 -->
+        <div id="formArea">
         <div class="form-group">
           <label>活动名称 <span class="required">*</span></label>
           <input type="text" id="activityName" placeholder="例如：企业AI实战营001">
@@ -238,6 +255,8 @@
           <button class="btn btn-outline" onclick="fillDemo()">填入示例数据</button>
           <button class="btn btn-primary" id="generateBtn" onclick="generate()">生成多平台文案</button>
         </div>
+
+        </div><!-- /formArea -->
 
         <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--text-secondary);">
           <span>生成引擎</span>
@@ -363,6 +382,72 @@ function switchMode(mode) {
 
 function isApiMode() {
   return document.querySelector('.mode-chip.active')?.dataset.mode === 'api';
+}
+
+// ---------- 输入模式切换 ----------
+
+function switchInputMode(mode) {
+  document.querySelectorAll('.mode-chip[data-input]').forEach(c => c.classList.remove('active'));
+  document.querySelector(`.mode-chip[data-input="${mode}"]`).classList.add('active');
+  document.getElementById('freeTextArea').style.display = mode === 'text' ? 'block' : 'none';
+  document.getElementById('formArea').style.display = mode === 'text' ? 'none' : 'block';
+}
+
+function isTextMode() {
+  return document.querySelector('.mode-chip.active[data-input]')?.dataset.input === 'text';
+}
+
+// ---------- 自由文本提取 ----------
+
+async function extractAndConfirm() {
+  const text = document.getElementById('freeTextInput').value.trim();
+  if (!text) { alert('请粘贴活动描述文本'); return; }
+
+  document.getElementById('extractBtn').disabled = true;
+  document.getElementById('extractBtn').textContent = 'AI 正在提取要素...';
+
+  try {
+    const res = await fetch('/api/extract-fields', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '提取失败');
+
+    // 回填表单
+    document.getElementById('activityName').value = data.activity_name || '';
+    document.getElementById('industry').value = data.industry || '';
+    document.getElementById('targetAudience').value = data.target_audience || '';
+    document.getElementById('keySellingPoints').value = data.key_selling_points || '';
+    document.getElementById('activityTime').value = data.activity_time || '';
+    document.getElementById('location').value = data.location || '';
+    document.getElementById('speaker').value = data.speaker || '';
+    document.getElementById('signupMethod').value = data.signup_method || '';
+    document.getElementById('toneHint').value = data.tone_hint || '专业可信';
+    document.getElementById('constraints').value = data.constraints || '';
+
+    // 填入确认对话框
+    document.getElementById('confirmTime').value = data.activity_time || '';
+    document.getElementById('confirmLocation').value = data.location || '';
+    document.getElementById('confirmSignup').value = data.signup_method || '';
+    document.getElementById('confirmPrice').value = data.price || '';
+    document.getElementById('confirmQuota').value = data.quota || '';
+    document.getElementById('confirmEffect').value = data.effect_claim || '';
+
+    // 选平台
+    document.querySelectorAll('.platform-chip').forEach(c => c.classList.add('active'));
+    if (data.platform_hint) {
+      // 如果 AI 建议平台，默认只选建议的
+    }
+
+    // 弹出确认
+    document.getElementById('confirmOverlay').classList.add('active');
+  } catch (e) {
+    alert('提取失败: ' + e.message);
+  }
+  document.getElementById('extractBtn').disabled = false;
+  document.getElementById('extractBtn').textContent = 'AI 提取要素并生成';
 }
 
 // Mock 数据
